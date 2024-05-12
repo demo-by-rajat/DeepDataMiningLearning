@@ -1,6 +1,3 @@
-#huggingfaceSequence5, add open ended question and answering
-#huggingfaceSequence4: created on 11/26, add QA
-#Sequence3:created on 11/24, plan to add summarization
 
 from datasets import load_dataset, DatasetDict
 from transformers import (AutoConfig, AutoModel, AutoModelForSeq2SeqLM, AutoModelForQuestionAnswering,
@@ -31,28 +28,6 @@ version_2_with_negative = True #squad_v2 or squad
 from utils_qa import preprocess_squad_batch, updateopenQAvalinputs, \
     postprocess_qa_predictions, create_and_fill_np_array, updateQAtraininputs, updateQAvalinputs
 
-
-#https://huggingface.co/facebook/wmt21-dense-24-wide-en-x
-# model = AutoModelForSeq2SeqLM.from_pretrained("facebook/wmt21-dense-24-wide-en-x")
-# tokenizer = AutoTokenizer.from_pretrained("facebook/wmt21-dense-24-wide-en-x")
-
-# inputs = tokenizer("To translate into a target language, the target language id is forced as the first generated token. To force the target language id as the first generated token, pass the forced_bos_token_id parameter to the generate method.", return_tensors="pt")
-
-# # translate English to Chinese
-# generated_tokens = model.generate(**inputs, forced_bos_token_id=tokenizer.get_lang_id("zh")) #max_new_tokens
-# result=tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
-# print(result)
-
-# model_checkpoint = "Helsinki-NLP/opus-mt-en-fr"
-# translator = pipeline("translation", model=model_checkpoint)
-# print(translator("Default to expanded threads"))
-
-# from transformers import AutoTokenizer
-
-# model_checkpoint = "Helsinki-NLP/opus-mt-en-fr"
-# tokenizer = AutoTokenizer.from_pretrained(model_checkpoint, return_tensors="pt")
-# from transformers import AutoModelForSeq2SeqLM
-# model = AutoModelForSeq2SeqLM.from_pretrained(model_checkpoint)
 
 def modelparameters(model, unfreezename=""):
     if unfreezename:
@@ -212,6 +187,13 @@ def loaddata(args, USE_HPC):
                 raw_datasets = load_dataset("xsum")
                 text_column = "document"
                 target_column = "summary"
+            elif args.data_name == 'emea':
+                raw_datasets = load_dataset("emea", lang1="en", lang2="nl")
+                raw_datasets["train"] = raw_datasets["train"].select(range(1000))
+                task_column = "translation"
+                text_column = "en"
+                target_column = "nl"
+
             elif args.data_name in ['squad', 'squad_v2']: #QA
                 raw_datasets = load_dataset(args.data_name)
                 #raw_datasets = load_dataset("squad", split="train[:5000]") #'train', 'test'
@@ -219,6 +201,7 @@ def loaddata(args, USE_HPC):
                 task_column ="question"
                 text_column = "context"
                 target_column = "answers"
+            
             else: 
                 #raw_datasets = load_dataset(args.data_name, args.dataconfig) #dataconfig="train_asks[:5000]"
                 raw_datasets = load_dataset(args.data_name)
@@ -714,6 +697,7 @@ if __name__ == "__main__":
                     help='perform evaluation via HFevaluate or localevaluate')
     parser.add_argument('--dualevaluate', default=True, action='store_true',
                     help='perform evaluation via HFevaluate and localevaluate')
+    parser.add_argument("--target_lang", type=str, default="nl", help="Target language id for translation.")
     parser.add_argument("--source_lang", type=str, default="en", help="Source language id for translation.")
     parser.add_argument("--target_lang", type=str, default="zh", help="Target language id for translation.")
     parser.add_argument(
@@ -737,9 +721,9 @@ if __name__ == "__main__":
     parser.add_argument('--useHFaccelerator', default=False, action='store_true',
                     help='Use Huggingface accelerator')
     parser.add_argument('--gpuid', default=0, type=int, help='GPU id')
-    parser.add_argument('--total_epochs', default=16, type=int, help='Total epochs to train the model')
+    parser.add_argument('--total_epochs', default=2, type=int, help='Total epochs to train the model')
     parser.add_argument('--save_every', default=2, type=int, help='How often to save a snapshot')
-    parser.add_argument('--batch_size', default=8, type=int, help='Input batch size on each device (default: 32)')
+    parser.add_argument('--batch_size', default=2, type=int, help='Input batch size on each device (default: 32)')
     parser.add_argument('--learningrate', default=2e-5, type=float, help='Learning rate')
     parser.add_argument(
         "--lr_scheduler_type",
@@ -966,13 +950,6 @@ if __name__ == "__main__":
                 model_inputs=updateQAvalinputs(model_inputs, examples)
             return model_inputs
         
-        # tokenized_datasets = raw_datasets.map(
-        #         QApreprocess_function,
-        #         batched=True,
-        #         num_proc=1,
-        #         remove_columns=raw_datasets["train"].column_names,
-        #     )#The default batch size is 1000, but you can adjust it with the batch_size argument
-        #tokenized_datasets = {}#raw_datasets.copy()
         train_dataset = raw_datasets["train"]
         eval_dataset = raw_datasets[valkey]
         mode='train'
@@ -986,11 +963,7 @@ if __name__ == "__main__":
         eval_dataset =eval_dataset.map(
             QApreprocess_function, batched=True, remove_columns=raw_datasets["train"].column_names,
                 fn_kwargs={"mode": mode}) 
-        #tokenized_datasets[valkey] = validation_dataset.remove_columns(["example_id", "offset_mapping"]) 
-        #eval_set_for_model = validation_dataset.remove_columns(["example_id", "offset_mapping"])
-        #print(validation_dataset.features.keys())#['input_ids', 'attention_mask', 'offset_mapping', 'example_id']
-        #print(eval_set_for_model.features.keys())#['input_ids', 'attention_mask']
-        #tokenized_datasets[valkey] = validation_dataset.remove_columns(["offset_mapping"]) 
+ 
         eval_dataset_for_model = eval_dataset.remove_columns(["example_id", "offset_mapping"])
         print(eval_dataset.features.keys())#['input_ids', 'attention_mask', 'offset_mapping', 'example_id']
         print(eval_dataset_for_model.features.keys())#['input_ids', 'attention_mask']
@@ -1004,15 +977,8 @@ if __name__ == "__main__":
     # data_collator = DataCollatorForSeq2Seq(tokenizer, model=model)
     #Data collators are objects that will form a batch by using a list of dataset elements as input.
     if args.pad_to_max_length:
-        # If padding was already done ot max length, we use the default data collator that will just convert everything
-        # to tensors.
-        #https://huggingface.co/docs/transformers/main/main_classes/data_collator
-        #Very simple data collator that simply collates batches of dict-like objects and performs special handling for potential keys 
         data_collator = default_data_collator #DefaultDataCollator()
     else:
-        # Otherwise, `DataCollatorWithPadding` will apply dynamic padding for us (by padding to the maximum length of
-        # the samples passed). When using mixed precision, we add `pad_to_multiple_of=8` to pad all tensors to multiple
-        # of 8s, which will enable the use of Tensor Cores on NVIDIA hardware with compute capability >= 7.5 (Volta).
         if task in ["translation", "summarization", "openqa"]:
             data_collator = DataCollatorForSeq2Seq(
                 tokenizer,
@@ -1023,11 +989,8 @@ if __name__ == "__main__":
         else: #[qa]
             data_collator = DataCollatorWithPadding(tokenizer, pad_to_multiple_of=(8 if use_fp16 else None))
 
-    #To test this on a few samples
     batch = data_collator([train_dataset[i] for i in range(1, 3)])
-    print(batch.keys()) #['input_ids', 'attention_mask', 'labels'], dict_keys(['input_ids', 'attention_mask', 'start_positions', 'end_positions'])
-    #batch["labels"] #our labels have been padded to the maximum length of the batch, using -100:
-    #batch["decoder_input_ids"] #shifted versions of the labels
+    print(batch.keys()) 
 
     metric = myEvaluator(args, useHFevaluator=args.hfevaluate, dualevaluator=args.dualevaluate)
     

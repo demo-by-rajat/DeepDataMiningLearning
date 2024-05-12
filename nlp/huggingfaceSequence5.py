@@ -1,6 +1,7 @@
 #huggingfaceSequence5, add open ended question and answering
 #huggingfaceSequence4: created on 11/26, add QA
 #Sequence3:created on 11/24, plan to add summarization
+
 from datasets import load_dataset, DatasetDict
 from transformers import (AutoConfig, AutoModel, AutoModelForSeq2SeqLM, AutoModelForQuestionAnswering,
                           AutoTokenizer, pipeline, get_scheduler,
@@ -20,6 +21,10 @@ import numpy as np
 import random
 import json
 import os
+
+os.environ['PYTORCH_MPS_HIGH_WATERMARK_RATIO'] = '0.0'
+
+
 valkey="test"#"validation"
 version_2_with_negative = True #squad_v2 or squad
 #Dualevaluation=True
@@ -1067,12 +1072,7 @@ if __name__ == "__main__":
         print("Using HF Accelerator and device:", device)
     else:
         accelerator = None
-        if torch.cuda.is_available():
-            device = torch.device('cuda:'+str(args.gpuid))  # CUDA GPU 0
-        elif torch.backends.mps.is_available():
-            device = torch.device("mps")
-        else:
-            device = torch.device("cpu")
+        device = torch.device("cpu")
 
         model.to(device)
         print("Using device:", device)

@@ -681,8 +681,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='simple distributed training job')
     parser.add_argument('--data_type', type=str, default="huggingface",
                     help='data type name: huggingface, custom')
-    parser.add_argument('--data_name', type=str, default="wmt19",
-                    help='data name: squad_v2, squad, opus_books, kde4, opus100, cnn_dailymail, billsum, xsum')
+    parser.add_argument('--data_name', type=str, default="emea",
+                    help='data name: squad_v2, squad, opus_books, kde4, opus100, cnn_dailymail, billsum, emea')
     parser.add_argument('--dataconfig', type=str, default='',
                     help='train_asks[:5000]')
     parser.add_argument('--subset', type=float, default=5000,
@@ -699,7 +699,6 @@ if __name__ == "__main__":
                     help='perform evaluation via HFevaluate and localevaluate')
     parser.add_argument("--target_lang", type=str, default="nl", help="Target language id for translation.")
     parser.add_argument("--source_lang", type=str, default="en", help="Source language id for translation.")
-    parser.add_argument("--target_lang", type=str, default="zh", help="Target language id for translation.")
     parser.add_argument(
         "--source_prefix",
         type=str,
@@ -724,7 +723,7 @@ if __name__ == "__main__":
     parser.add_argument('--total_epochs', default=2, type=int, help='Total epochs to train the model')
     parser.add_argument('--save_every', default=2, type=int, help='How often to save a snapshot')
     parser.add_argument('--batch_size', default=2, type=int, help='Input batch size on each device (default: 32)')
-    parser.add_argument('--learningrate', default=2e-5, type=float, help='Learning rate')
+    parser.add_argument('--learningrate', default=2e-6, type=float, help='Learning rate')
     parser.add_argument(
         "--lr_scheduler_type",
         type=str,

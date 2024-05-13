@@ -189,7 +189,8 @@ def loaddata(args, USE_HPC):
                 target_column = "summary"
             elif args.data_name == 'emea':
                 raw_datasets = load_dataset("emea", lang1="en", lang2="nl")
-                raw_datasets["train"] = raw_datasets["train"].select(range(1000))
+                raw_datasets["train"] = raw_datasets["train"].select(range(500))
+                #raw_datasets["validation"] = raw_datasets["validation"].select(range(250))
                 task_column = "translation"
                 text_column = "en"
                 target_column = "nl"
